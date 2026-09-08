@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuratore Autogru & Cantieri - Camillo Vismara SA</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary: #0f172a;
+            --secondary: #2563eb;
+            --accent: #f97316;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #334155;
+            --border: #e2e8f0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; padding: 0;
+            display: flex; height: 100vh; width: 100vw;
+            overflow: hidden;
+            color: var(--text);
+            background-color: var(--bg);
+        }
+        #sidebar {
+            width: 480px;
+            min-width: 480px;
+            background: var(--surface);
+            box-shadow: 4px 0 25px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        .header {
+            background: var(--primary);
+            color: white;
+            padding: 20px;
+            text-align: left;
+            border-bottom: 3px solid var(--secondary);
+        }
+        .header h2 { margin: 0; font-size: 1.15rem; font-weight: 700; letter-spacing: -0.5px; }
+        .header small { color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; display: block; margin-top: 4px;}
+        
+        .section {
+            padding: 18px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .section h3 { margin-top: 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--primary); font-weight: 700; }
+        
+        label { display: block; font-size: 0.8rem; font-weight: 700; margin-top: 12px; color: #334155; }
+        input, select, textarea {
+            width: 100%; padding: 11px 14px; margin-top: 6px;
+            border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box;
+            font-size: 0.9rem; background: #fff; color: var(--text);
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus { outline: none; border-color: var(--secondary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        
+        .stepper-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+            align-items: center;
+        }
+        .stepper-row input { margin-top: 0; text-align: center; font-weight: 700; }
+        .step-btn {
+            background: #e2e8f0;
+            color: var(--primary);
+            border: 1px solid #cbd5e1;
+            padding: 11px 14px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            width: auto;
+            margin-top: 0;
+            transition: background 0.1s;
+        }
+        .step-btn:hover { background: #cbd5e1; }
+        .step-btn:active { background: #94a3b8; }
+
+        .checkbox-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+        .checkbox-row input { width: 20px; height: 20px; margin: 0; cursor: pointer; }
+        
+        .color-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+        .color-row input[type="color"] { width: 50px; height: 40px; padding: 0; border: none; cursor: pointer; border-radius: 6px; }
+
+        button {
+            background: var(--secondary);
+            color: white; border: none; padding: 12px 18px;
+            width: 100%; border-radius: 8px; cursor: pointer;
+            font-weight: 700; font-size: 0.9rem; margin-top: 14px;
+            transition: background 0.2s, transform 0.1s;
+        }
+        button:hover { background: #1d4ed8; }
+        button:active { transform: scale(0.98); }
+        button.secondary { background: #475569; }
+        button.secondary:hover { background: #334155; }
+        button.danger { background: #ef4444; }
+        button.danger:hover { background: #dc2626; }
+        button.success { background: #10b981; }
+        button.success:hover { background: #059669; }
+        button.warning { background: #f59e0b; }
+        button.warning:hover { background: #d97706; }
+
+        #map-container { flex: 1; position: relative; height: 100%; }
+        #map { width: 100%; height: 100%; }
+        
+        #search-bar {
+            position: absolute; top: 15px; right: 15px; z-index: 1001;
+            background: white; padding: 8px; border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1); display: flex; gap: 8px; width: 320px;
+        }
+        #search-bar input { margin: 0; border: 1px solid var(--border); }
+        #search-bar button { width: auto; margin: 0; padding: 8px 14px; }
+
+        .fleet-item, .placed-item, .ann-item {
+            background: #f1f5f9; padding: 12px; border-radius: 8px;
+            margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; border: 1px solid transparent; transition: all 0.2s;
+        }
+        .fleet-item:hover, .placed-item:hover, .ann-item:hover { background: #e2e8f0; }
+        .fleet-item.active, .placed-item.active { border-color: var(--secondary); background: #eff6ff; }
+        .fleet-info, .placed-info, .ann-info { font-size: 0.85rem; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        #print-footer { display: none; }
+
+        @media print {
+            #sidebar, #search-bar { display: none !important; }
+            #map-container { width: 100% !important; height: 100vh !important; position: relative !important; }
+            .leaflet-control-container, .leaflet-control-attribution { display: none !important; }
+            #print-footer {
+                display: block !important;
+                position: absolute;
+                bottom: 25px;
+                right: 30px;
+                background: white;
+                padding: 10px 20px;
+                font-family: Arial, sans-serif;
+                font-weight: 700;
+                font-size: 14px;
+                color: var(--primary);
+                border: 2px solid var(--primary);
+                border-radius: 6px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 99999;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <div class="header">
+            <h2>Configuratore Autogru & Cantieri</h2>
+            <small>Sacha Vismara — Camillo Vismara SA[cite: 1]</small>
+        </div>
+
+        <div class="section">
+            <h3>1. Gestione Flotta & Veicoli</h3>
+            <button class="success" onclick="toggleModelForm()" id="btn-toggle-form">➕ Crea Nuovo Modello Mezzo</button>
+            
+            <div id="model-form-container" style="display: none; margin-top: 15px; border-top: 1px dashed var(--border); padding-top: 10px;">
+                <label>Nome Modello</label>
+                <input type="text" id="model-name" placeholder="Es. Liebherr LTM 1100 / Camiongru">
+
+                <label>Tipo</label>
+                <select id="model-type" onchange="handleModelTypeChange()">
+                    <option value="crane">Autogru</option>
+                    <option value="truckcrane">Camiongru</option>
+                    <option value="truck">Camion Pianale</option>
+                </select>
+
+                <label>Colore Carro / Mezzo</label>
+                <div class="color-row">
+                    <input type="color" id="model-color" value="#2563eb">
+                    <span style="font-size:0.8rem; color:#64748b;">Colore personalizzato</span>
+                </div>
+
+                <label>Lunghezza Carro (m)</label>
+                <input type="number" id="model-length" value="14.0" step="0.5">
+
+                <label>Larghezza Carro (m)</label>
+                <input type="number" id="model-width" value="3.0" step="0.1">
+
+                <div id="crane-extra-fields">
+                    <label>Distanza Centro Ralla dal Filo Macchina (m, + avanti / - indietro)</label>
+                    <input type="number" id="model-center-offset" value="0.0" step="0.5">
+
+                    <label>Stabilizzatori - Apertura Trasversale Max (m)</label>
+                    <input type="number" id="model-stab-w" value="8.0" step="0.5">
+
+                    <label>Stabilizzatori - Apertura Longitudinale Max (m)</label>
+                    <input type="number" id="model-stab-l" value="8.0" step="0.5">
+
+                    <label>Braccio Base / Minimo (m)</label>
+                    <input type="number" id="model-base-boom" value="11.0" step="1.0">
+
+                    <label>Braccio Massimo (m)</label>
+                    <input type="number" id="model-max-boom" value="50.0" step="1.0">
+
+                    <div id="tail-field-wrapper">
+                        <label>Raggio Ingombro di Rotazione Posteriore (m)</label>
+                        <input type="number" id="model-tail" value="3.5" step="0.5">
+                    </div>
+                </div>
+
+                <button onclick="saveVehicleModel()">Salva Modello in Flotta</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>2. La Tua Flotta</h3>
+            <div id="fleet-list"></div>
+        </div>
+
+        <div class="section">
+            <h3>3. Posiziona Mezzo in Cantiere</h3>
+            <label>Seleziona Modello da Posizionare</label>
+            <select id="selected-vehicle">
+                <option value="">-- Scegli modello --</option>
+            </select>
+
+            <label>Rotazione Carro (Gradi)</label>
+            <div class="stepper-row">
+                <button class="step-btn" onclick="adjustValue('placement-rotation', -15)">◀ -15°</button>
+                <input type="number" id="placement-rotation" value="0" step="5" oninput="updateActiveVehicleParam('carRot', this.value)">
+                <button class="step-btn" onclick="adjustValue('placement-rotation', 15)">+15° ▶</button>
+            </div>
+
+            <div id="crane-placement-controls">
+                <label>Rotazione Torretta & Braccio (Gradi)</label>
+                <div class="stepper-row">
+                    <button class="step-btn" onclick="adjustValue('placement-turret-rot', -15)">◀ -15°</button>
+                    <input type="number" id="placement-turret-rot" value="0" step="5" oninput="updateActiveVehicleParam('turretRot', this.value)">
+                    <button class="step-btn" onclick="adjustValue('placement-turret-rot', 15)">+15° ▶</button>
+                </div>
+
+                <label>Sbraccio Attuale (metri)</label>
+                <div class="stepper-row">
+                    <button class="step-btn" onclick="adjustValue('placement-boom-len', -1)">➖ 1m</button>
+                    <input type="number" id="placement-boom-len" value="22" step="1" oninput="updateActiveVehicleParam('boomLen', this.value)">
+                    <button class="step-btn" onclick="adjustValue('placement-boom-len', 1)">➕ 1m</button>
+                </div>
+
+                <label style="margin-top: 14px; font-weight: 700; color: var(--primary);">Estensione singoli stabilizzatori</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+                    <div>
+                        <label style="margin-top:2px;">Ant. Sinistro (AS)</label>
+                        <input type="range" id="stab-as" min="20" max="100" value="100" oninput="updateSingleStabilizer('as', this.value)">
+                        <div id="val-stab-as" style="font-size: 0.75rem; color: #2563eb; font-weight: 700; margin-top: 2px; text-align: right;">100% (4.0m)</div>
+                    </div>
+                    <div>
+                        <label style="margin-top:2px;">Ant. Destro (AD)</label>
+                        <input type="range" id="stab-ad" min="20" max="100" value="100" oninput="updateSingleStabilizer('ad', this.value)">
+                        <div id="val-stab-ad" style="font-size: 0.75rem; color: #2563eb; font-weight: 700; margin-top: 2px; text-align: right;">100% (4.0m)</div>
+                    </div>
+                    <div>
+                        <label style="margin-top:2px;">Post. Sinistro (PS)</label>
+                        <input type="range" id="stab-ps" min="20" max="100" value="100" oninput="updateSingleStabilizer('ps', this.value)">
+                        <div id="val-stab-ps" style="font-size: 0.75rem; color: #2563eb; font-weight: 700; margin-top: 2px; text-align: right;">100% (4.0m)</div>
+                    </div>
+                    <div>
+                        <label style="margin-top:2px;">Post. Destro (PD)</label>
+                        <input type="range" id="stab-pd" min="20" max="100" value="100" oninput="updateSingleStabilizer('pd', this.value)">
+                        <div id="val-stab-pd" style="font-size: 0.75rem; color: #2563eb; font-weight: 700; margin-top: 2px; text-align: right;">100% (4.0m)</div>
+                    </div>
+                </div>
+
+                <div class="checkbox-row">
+                    <input type="checkbox" id="show-plates" onchange="updateActiveVehicleParam('showPlates', this.checked)">
+                    <label for="show-plates" style="margin-top:0; display:inline;">Aggiungi piastre di ripartizione legno</label>
+                </div>
+
+                <label>Dimensione Piastre Stabilizzatori</label>
+                <select id="plate-size" onchange="updateActiveVehicleParam('plateSize', this.value)">
+                    <option value="1.2x2">1.2m x 2m</option>
+                    <option value="1.6x2">1.6m x 2m</option>
+                    <option value="2.5x3">2.5m x 3m</option>
+                </select>
+            </div>
+
+            <button class="success" onclick="insertVehicle()">➕ Inserisci Mezzo in Mappa</button>
+        </div>
+
+        <div class="section">
+            <h3>4. Mezzi Attivi nel Cantiere</h3>
+            <div id="placed-list"><small style="color:#64748b;">Nessun mezzo inserito.</small></div>
+        </div>
+
+        <div class="section">
+            <h3>5. Annotazioni e Aree (Geopark)</h3>
+            <label>Tipo Elemento</label>
+            <select id="ann-type" onchange="toggleDrawingMode(this.value)">
+                <option value="emoji">Inserisci Emoji / Testo (es. 🏗️, ⚠️, Nota)</option>
+                <option value="area">Traccia Area Personalizzata sulla Mappa</option>
+            </select>
+
+            <div id="ann-text-container">
+                <label>Simbolo / Emoji o Testo (Linea Singola)</label>
+                <input type="text" id="ann-text" placeholder="Es. 🏗️ o Accesso Cantiere">
+
+                <label>Dimensione Testo / Emoji (Pixel)</label>
+                <div class="stepper-row">
+                    <button class="step-btn" onclick="adjustValue('ann-size', -4)">➖ 4px</button>
+                    <input type="number" id="ann-size" value="24" step="2" min="10" max="96">
+                    <button class="step-btn" onclick="adjustValue('ann-size', 4)">➕ 4px</button>
+                </div>
+                
+                <label>Rotazione / Orientamento (Gradi)</label>
+                <div class="stepper-row">
+                    <button class="step-btn" onclick="adjustValue('ann-rot', -15)">◀ -15°</button>
+                    <input type="number" id="ann-rot" value="0" step="5">
+                    <button class="step-btn" onclick="adjustValue('ann-rot', 15)">+15° ▶</button>
+                </div>
+
+                <button class="secondary" onclick="addAnnotation()">Aggiungi Simbolo/Testo al Centro Mappa</button>
+            </div>
+
+            <div id="ann-area-container" style="display:none;">
+                <label>Colore Riempimento Area</label>
+                <div class="color-row">
+                    <input type="color" id="area-color" value="#3b82f6">
+                    <span style="font-size:0.8rem; color:#64748b;">Scegli colore</span>
+                </div>
+
+                <label>Trasparenza (Opacità: 0.1 - 1.0)</label>
+                <input type="number" id="area-opacity" value="0.3" min="0.1" max="1.0" step="0.1">
+
+                <button class="warning" onclick="startAreaDrawing()" id="btn-start-draw">✏️ Inizia a Tracciare Area</button>
+                <button class="danger" onclick="clearAllAreas()">🗑️ Elimina Tutte le Aree</button>
+                <p id="drawing-instructions" style="font-size: 0.78rem; color: #64748b; margin-top: 8px; display:none;">💡 Clicca per fissare i punti. La linea seguirà il mouse. Premi <strong>Enter</strong> per chiudere e completare l'area.</p>
+            </div>
+
+            <label style="margin-top: 16px;">Elementi Testo / Simboli Inseriti</label>
+            <div id="annotations-list" style="max-height: 150px; overflow-y: auto;"><small style="color:#64748b;">Nessuna annotazione.</small></div>
+        </div>
+
+        <div class="section">
+            <h3>6. Esportazione Progetto</h3>
+            <button onclick="exportToPDF()" style="background:#dc2626;">📄 Esporta Progetto in PDF</button>
+        </div>
+    </div>
+
+    <div id="map-container">
+        <div id="search-bar">
+            <input type="text" id="address-input" placeholder="Cerca indirizzo (es. Lugano)...">
+            <button onclick="searchAddress()">Cerca</button>
+        </div>
+        <div id="map"></div>
+        <div id="print-footer">Progetto Camillo Vismara SA[cite: 1]</div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([46.0037, 8.9511], 19);
+
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 22,
+            attribution: 'Tiles &copy; Esri'
+        }).addTo(map);
+
+        setTimeout(function() {
+            map.invalidateSize();
+        }, 100);
+
+        let fleet = JSON.parse(localStorage.getItem('sv_fleet')) || [
+            { id: 1, name: "Autogru 5 Assi (100t)", type: "crane", color: "#2563eb", length: 14.0, width: 3.0, centerOffset: 0.0, stabW: 8.0, stabL: 8.0, baseBoom: 11.0, maxBoom: 50.0, tail: 3.5 },
+            { id: 2, name: "Camiongru 4 Assi", type: "truckcrane", color: "#059669", length: 10.0, width: 2.5, centerOffset: 0.0, stabW: 6.0, stabL: 6.0, baseBoom: 8.0, maxBoom: 25.0 },
+            { id: 3, name: "Camion Pianale 3 Assi", type: "truck", color: "#0284c7", length: 9.5, width: 2.5 }
+        ];
+
+        let placedVehicles = [];
+        let activeVehicleId = null;
+        let annotations = []; // Contiene marker di testo/emoji e poligoni area
+        
+        let isDrawingAreaActive = false;
+        let drawingPoints = [];
+        let tempDrawingPolyline = null;
+        let mouseMoveLatLng = null;
+
+        function initApp() {
+            renderFleetList();
+            updateVehicleSelect();
+        }
+
+        function adjustValue(elementId, delta) {
+            const el = document.getElementById(elementId);
+            if(!el) return;
+            let val = (parseFloat(el.value) || 0) + delta;
+            el.value = val;
+            el.dispatchEvent(new Event('input'));
+        }
+
+        function toggleModelForm() {
+            const formContainer = document.getElementById('model-form-container');
+            const btn = document.getElementById('btn-toggle-form');
+            if(formContainer.style.display === 'none') {
+                formContainer.style.display = 'block';
+                btn.innerText = '✖ Chiudi Modulo Creazione';
+                btn.style.background = '#475569';
+            } else {
+                formContainer.style.display = 'none';
+                btn.innerText = '➕ Crea Nuovo Modello Mezzo';
+                btn.style.background = '#10b981';
+            }
+        }
+
+        function handleModelTypeChange() {
+            const type = document.getElementById('model-type').value;
+            const craneExtra = document.getElementById('crane-extra-fields');
+            const tailWrapper = document.getElementById('tail-field-wrapper');
+            
+            if (type === 'truck') {
+                craneExtra.style.display = 'none';
+            } else {
+                craneExtra.style.display = 'block';
+                if (type === 'truckcrane') {
+                    tailWrapper.style.display = 'none';
+                } else {
+                    tailWrapper.style.display = 'block';
+                }
+            }
+        }
+
+        function saveVehicleModel() {
+            const name = document.getElementById('model-name').value;
+            if(!name) { alert("Inserisci un nome."); return; }
+
+            const type = document.getElementById('model-type').value;
+            const newModel = {
+                id: Date.now(),
+                name: name,
+                type: type,
+                color: document.getElementById('model-color').value,
+                length: parseFloat(document.getElementById('model-length').value) || 10.0,
+                width: parseFloat(document.getElementById('model-width').value) || 2.5
+            };
+
+            if (type === 'crane' || type === 'truckcrane') {
+                newModel.centerOffset = parseFloat(document.getElementById('model-center-offset').value) || 0.0;
+                newModel.stabW = parseFloat(document.getElementById('model-stab-w').value) || 8.0;
+                newModel.stabL = parseFloat(document.getElementById('model-stab-l').value) || 8.0;
+                newModel.baseBoom = parseFloat(document.getElementById('model-base-boom').value) || 11.0;
+                newModel.maxBoom = parseFloat(document.getElementById('model-max-boom').value) || 50.0;
+                if (type === 'crane') {
+                    newModel.tail = parseFloat(document.getElementById('model-tail').value) || 3.5;
+                }
+            }
+
+            fleet.push(newModel);
+            localStorage.setItem('sv_fleet', JSON.stringify(fleet));
+            document.getElementById('model-name').value = '';
+            toggleModelForm();
+            initApp();
+        }
+
+        function deleteModel(id) {
+            const modelToDelete = fleet.find(item => item.id === id);
+            const modelName = modelToDelete ? modelToDelete.name : "questo modello";
+            
+            if (confirm(`Sei sicuro di voler eliminare "${modelName}" dalla flotta?`)) {
+                fleet = fleet.filter(item => item.id !== id);
+                localStorage.setItem('sv_fleet', JSON.stringify(fleet));
+                initApp();
+            }
+        }
+
+        function renderFleetList() {
+            const container = document.getElementById('fleet-list');
+            container.innerHTML = '';
+            if(fleet.length === 0) { container.innerHTML = '<small style="color:#64748b;">Nessun modello.</small>'; return; }
+            fleet.forEach(item => {
+                let desc = `Carro: ${item.length}x${item.width}m`;
+                if(item.type === 'crane' || item.type === 'truckcrane') desc += ` | Ralla: ${item.centerOffset || 0}m | Braccio: ${item.baseBoom}-${item.maxBoom}m`;
+                else desc += ` | Tipo: Camion`;
+
+                container.innerHTML += `
+                    <div class="fleet-item">
+                        <div class="fleet-info">
+                            <strong><span style="color:${item.color || '#2563eb'};">■</span> ${item.name}</strong><br>
+                            ${desc}
+                        </div>
+                        <button class="danger" style="width:auto; margin:0; padding:4px 8px; font-size:0.75rem;" onclick="deleteModel(${item.id})">Elimina</button>
+                    </div>
+                `;
+            });
+        }
+
+        function updateVehicleSelect() {
+            const select = document.getElementById('selected-vehicle');
+            select.innerHTML = '<option value="">-- Scegli modello --</option>';
+            fleet.forEach(item => {
+                select.innerHTML += `<option value="${item.id}" data-type="${item.type}" data-base="${item.baseBoom || 11}" data-stabw="${item.stabW || 8}">${item.name}</option>`;
+            });
+        }
+
+        document.getElementById('selected-vehicle').addEventListener('change', function() {
+            const selectedOpt = this.options[this.selectedIndex];
+            const type = selectedOpt.getAttribute('data-type');
+            const baseB = selectedOpt.getAttribute('data-base');
+
+            const isCraneType = (type === 'crane' || type === 'truckcrane');
+            document.getElementById('crane-placement-controls').style.display = isCraneType ? 'block' : 'none';
+
+            if(isCraneType && baseB) {
+                document.getElementById('placement-boom-len').value = baseB;
+                document.getElementById('placement-turret-rot').value = 0;
+                document.getElementById('stab-as').value = 100;
+                document.getElementById('stab-ad').value = 100;
+                document.getElementById('stab-ps').value = 100;
+                document.getElementById('stab-pd').value = 100;
+                updateStabilizerLabels(100, 100, 100, 100);
+            }
+        });
+
+        function updateStabilizerLabels(asVal, adVal, psVal, pdVal) {
+            const selectedOpt = document.getElementById('selected-vehicle').selectedOptions[0];
+            let maxStabW = 8.0;
+            if(activeVehicleId) {
+                const inst = placedVehicles.find(v => v.id === activeVehicleId);
+                if(inst && inst.vehicle && inst.vehicle.stabW) maxStabW = inst.vehicle.stabW;
+            } else if(selectedOpt) {
+                const modelId = selectedOpt.value;
+                const m = fleet.find(item => item.id == modelId);
+                if(m && m.stabW) maxStabW = m.stabW;
+            }
+            const halfMax = maxStabW / 2;
+
+            document.getElementById('val-stab-as').innerText = `${asVal}% (${(halfMax * (asVal/100)).toFixed(2)}m)`;
+            document.getElementById('val-stab-ad').innerText = `${adVal}% (${(halfMax * (adVal/100)).toFixed(2)}m)`;
+            document.getElementById('val-stab-ps').innerText = `${psVal}% (${(halfMax * (psVal/100)).toFixed(2)}m)`;
+            document.getElementById('val-stab-pd').innerText = `${pdVal}% (${(halfMax * (pdVal/100)).toFixed(2)}m)`;
+        }
+
+        function updateSingleStabilizer(pos, val) {
+            const as = document.getElementById('stab-as').value;
+            const ad = document.getElementById('stab-ad').value;
+            const ps = document.getElementById('stab-ps').value;
+            const pd = document.getElementById('stab-pd').value;
+            updateStabilizerLabels(as, ad, ps, pd);
+
+            if(!activeVehicleId) return;
+            const instance = placedVehicles.find(v => v.id === activeVehicleId);
+            if(!instance) return;
+            if(!instance.extMap) instance.extMap = {as: 100, ad: 100, ps: 100, pd: 100};
+            instance.extMap[pos] = parseFloat(val);
+            redrawVehicle(instance);
+        }
+
+        function searchAddress() {
+            const query = document.getElementById('address-input').value;
+            if(!query) return;
+
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if(data && data.length > 0) {
+                        map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 19);
+                    } else {
+                        alert("Indirizzo non trovato.");
+                    }
+                })
+                .catch(err => console.error("Errore ricerca:", err));
+        }
+
+        function rotatePoint(px, py, cx, cy, angleDeg) {
+            const rad = angleDeg * Math.PI / 180;
+            const cos = Math.cos(rad);
+            const sin = Math.sin(rad);
+            const nx = (cos * (px - cx)) - (sin * (py - cy)) + cx;
+            const ny = (sin * (px - cx)) + (cos * (py - cy)) + cy;
+            return [nx, ny];
+        }
+
+        function metersToLatLon(lat, lng, dNorth, dEast) {
+            const earthRadius = 6378137;
+            const dLat = (dNorth / earthRadius) * (180 / Math.PI);
+            const dLon = (dEast / (earthRadius * Math.cos(lat * Math.PI / 180))) * (180 / Math.PI);
+            return [lat + dLat, lng + dLon];
+        }
+
+        function insertVehicle() {
+            const selectedId = document.getElementById('selected-vehicle').value;
+            if(!selectedId) { alert("Seleziona prima un modello dalla flotta."); return; }
+
+            const vehicleTemplate = fleet.find(item => item.id == selectedId);
+            const centerLatLng = map.getCenter();
+
+            const instance = {
+                id: Date.now(),
+                vehicle: vehicleTemplate,
+                latlng: centerLatLng,
+                carRot: parseFloat(document.getElementById('placement-rotation').value) || 0,
+                turretRot: (vehicleTemplate.type === 'crane' || vehicleTemplate.type === 'truckcrane') ? (parseFloat(document.getElementById('placement-turret-rot').value) || 0) : 0,
+                boomLen: (vehicleTemplate.type === 'crane' || vehicleTemplate.type === 'truckcrane') ? (parseFloat(document.getElementById('placement-boom-len').value) || vehicleTemplate.baseBoom || 11) : 0,
+                extMap: {
+                    as: parseFloat(document.getElementById('stab-as').value) || 100,
+                    ad: parseFloat(document.getElementById('stab-ad').value) || 100,
+                    ps: parseFloat(document.getElementById('stab-ps').value) || 100,
+                    pd: parseFloat(document.getElementById('stab-pd').value) || 100
+                },
+                showPlates: (vehicleTemplate.type === 'crane' || vehicleTemplate.type === 'truckcrane') ? document.getElementById('show-plates').checked : false,
+                plateSize: (vehicleTemplate.type === 'crane' || vehicleTemplate.type === 'truckcrane') ? document.getElementById('plate-size').value : '1.2x2',
+                group: null,
+                centerMarker: null
+            };
+
+            placedVehicles.push(instance);
+            activeVehicleId = instance.id;
+            createVehicleMapElements(instance);
+            renderPlacedList();
+        }
+
+        function setActiveVehicle(id) {
+            activeVehicleId = id;
+            const instance = placedVehicles.find(v => v.id === id);
+            if(instance) {
+                document.getElementById('placement-rotation').value = instance.carRot;
+                const isCraneType = (instance.vehicle.type === 'crane' || instance.vehicle.type === 'truckcrane');
+                document.getElementById('crane-placement-controls').style.display = isCraneType ? 'block' : 'none';
+
+                if(isCraneType) {
+                    document.getElementById('placement-turret-rot').value = instance.turretRot;
+                    document.getElementById('placement-boom-len').value = instance.boomLen;
+                    document.getElementById('stab-as').value = instance.extMap.as;
+                    document.getElementById('stab-ad').value = instance.extMap.ad;
+                    document.getElementById('stab-ps').value = instance.extMap.ps;
+                    document.getElementById('stab-pd').value = instance.extMap.pd;
+                    updateStabilizerLabels(instance.extMap.as, instance.extMap.ad, instance.extMap.ps, instance.extMap.pd);
+                    document.getElementById('show-plates').checked = instance.showPlates;
+                    document.getElementById('plate-size').value = instance.plateSize;
+                }
+            }
+            renderPlacedList();
+        }
+
+        function updateActiveVehicleParam(param, value) {
+            if(!activeVehicleId) return;
+            const instance = placedVehicles.find(v => v.id === activeVehicleId);
+            if(!instance) return;
+
+            if(['carRot', 'turretRot', 'boomLen'].includes(param)) {
+                instance[param] = parseFloat(value) || 0;
+            } else {
+                instance[param] = value;
+            }
+            redrawVehicle(instance);
+        }
+
+        function createVehicleMapElements(instance) {
+            const centerIcon = L.divIcon({
+                className: 'custom-center-icon',
+                html: '<div style="width:16px; height:16px; background:#0f172a; border:2px solid white; border-radius:50%; box-shadow:0 0 6px rgba(0,0,0,0.3);" title="Trascina per spostare il mezzo"></div>',
+                iconSize: [16, 16], iconAnchor: [8, 8]
+            });
+
+            instance.centerMarker = L.marker(instance.latlng, { draggable: true, icon: centerIcon }).addTo(map);
+            instance.centerMarker.on('click', () => setActiveVehicle(instance.id));
+            instance.centerMarker.on('drag', function() {
+                instance.latlng = instance.centerMarker.getLatLng();
+                redrawVehicle(instance);
+            });
+
+            redrawVehicle(instance);
+        }
+
+        function redrawVehicleGeometry(instance) {
+            const vehicle = instance.vehicle;
+            const lat = instance.latlng.lat;
+            const lng = instance.latlng.lng;
+
+            if(instance.group) { map.removeLayer(instance.group); }
+
+            const L2 = (vehicle.length || 10.0) / 2;
+            const W2 = (vehicle.width || 2.5) / 2;
+            let groupLayers = [];
+
+            let carLocal = [[-W2, L2], [W2, L2], [W2, -L2], [-W2, -L2]];
+            let carGeo = carLocal.map(p => {
+                let rp = rotatePoint(p[0], p[1], 0, 0, instance.carRot || 0);
+                return metersToLatLon(lat, lng, rp[1], rp[0]);
+            });
+
+            let carPoly = L.polygon(carGeo, {
+                color: '#0f172a', weight: 2, fillColor: vehicle.color || '#2563eb', fillOpacity: 0.9
+            });
+
+            let cabLocal = [[-W2 * 0.85, L2], [W2 * 0.85, L2], [W2 * 0.85, L2 - (vehicle.type === 'truck' ? 2.5 : 2.2)], [-W2 * 0.85, L2 - (vehicle.type === 'truck' ? 2.5 : 2.2)]];
+            let cabGeo = cabLocal.map(p => {
+                let rp = rotatePoint(p[0], p[1], 0, 0, instance.carRot || 0);
+                return metersToLatLon(lat, lng, rp[1], rp[0]);
+            });
+            groupLayers.push(L.polygon(cabGeo, { color: '#0f172a', weight: 1.5, fillColor: '#93c5fd', fillOpacity: 0.95 }));
+
+            carPoly.on('click', (e) => {
+                L.DomEvent.stopPropagation(e);
+                setActiveVehicle(instance.id);
+                instance.carRot = ((instance.carRot || 0) + 45);
+                document.getElementById('placement-rotation').value = instance.carRot;
+                redrawVehicle(instance);
+            });
+            groupLayers.push(carPoly);
+
+            if (vehicle.type === 'crane' || vehicle.type === 'truckcrane') {
+                const maxStabW = (vehicle.stabW || 8.0) / 2;
+                const stabAttachOffset = L2 * 0.6;
+                const extMap = instance.extMap || {as: 100, ad: 100, ps: 100, pd: 100};
+                
+                const stabPoints = [
+                    { key: 'as', x: -maxStabW * (extMap.as / 100), y: stabAttachOffset },
+                    { key: 'ad', x: maxStabW * (extMap.ad / 100), y: stabAttachOffset },
+                    { key: 'ps', x: -maxStabW * (extMap.ps / 100), y: -stabAttachOffset },
+                    { key: 'pd', x: maxStabW * (extMap.pd / 100), y: -stabAttachOffset }
+                ];
+
+                stabPoints.forEach(sp => {
+                    let attLoc = { x: (sp.x < 0 ? -W2 : W2), y: sp.y };
+                    let rotAtt = rotatePoint(attLoc.x, attLoc.y, 0, 0, instance.carRot || 0);
+                    let rotStab = rotatePoint(sp.x, sp.y, 0, 0, instance.carRot || 0);
+
+                    groupLayers.push(L.polyline([metersToLatLon(lat, lng, rotAtt[1], rotAtt[0]), metersToLatLon(lat, lng, rotStab[1], rotStab[0])], { color: '#dc2626', weight: 3, dashArray: '3,3' }));
+
+                    let pSize = 0.4;
+                    let plateLoc = [[sp.x - pSize, sp.y + pSize], [sp.x + pSize, sp.y + pSize], [sp.x + pSize, sp.y - pSize], [sp.x - pSize, sp.y - pSize]];
+                    let plateGeo = plateLoc.map(pt => {
+                        let rp = rotatePoint(pt[0], pt[1], 0, 0, instance.carRot || 0);
+                        return metersToLatLon(lat, lng, rp[1], rp[0]);
+                    });
+                    groupLayers.push(L.polygon(plateGeo, { color: '#991b1b', weight: 1, fillColor: '#ef4444', fillOpacity: 1 }));
+
+                    if (instance.showPlates) {
+                        let pW = 1.2, pL = 2.0;
+                        if (instance.plateSize === '1.6x2') { pW = 1.6; pL = 2.0; }
+                        else if (instance.plateSize === '2.5x3') { pW = 2.5; pL = 3.0; }
+                        let pw2 = pW / 2, pl2 = pL / 2;
+                        let woodLoc = [[sp.x - pw2, sp.y + pl2], [sp.x + pw2, sp.y + pl2], [sp.x + pw2, sp.y - pl2], [sp.x - pw2, sp.y - pl2]];
+                        let woodGeo = woodLoc.map(wt => {
+                            let rp = rotatePoint(wt[0], wt[1], 0, 0, instance.carRot || 0);
+                            return metersToLatLon(lat, lng, rp[1], rp[0]);
+                        });
+                        groupLayers.push(L.polygon(woodGeo, { color: '#b45309', weight: 1.5, fillColor: '#d97706', fillOpacity: 0.85 }));
+                    }
+                });
+
+                let offsetVal = vehicle.centerOffset || 0;
+                let rotCenterOffset = rotatePoint(0, offsetVal, 0, 0, instance.carRot || 0);
+                let centerCraneLatLng = metersToLatLon(lat, lng, rotCenterOffset[1], rotCenterOffset[0]);
+
+                if (vehicle.type === 'crane') {
+                    let tailRadius = vehicle.tail || 3.5;
+                    groupLayers.push(L.circle(centerCraneLatLng, { radius: tailRadius, color: '#f97316', weight: 1.5, dashArray: '5,5', fillColor: '#f97316', fillOpacity: 0.08 }));
+                }
+                groupLayers.push(L.circle(centerCraneLatLng, { radius: 1.2, color: '#9a3412', weight: 2, fillColor: '#f59e0b', fillOpacity: 0.9 }));
+
+                let boomLen = instance.boomLen || 22;
+                let boomLocal = [[-0.4, -1.0], [0.4, -1.0], [0.4, boomLen], [-0.4, boomLen]];
+                let boomGeo = boomLocal.map(bp => {
+                    let rp = rotatePoint(bp[0], bp[1], 0, 0, instance.turretRot || 0);
+                    return metersToLatLon(centerCraneLatLng[0], centerCraneLatLng[1], rp[1], rp[0]);
+                });
+                groupLayers.push(L.polygon(boomGeo, { color: '#b45309', weight: 2, fillColor: '#f59e0b', fillOpacity: 0.9 }));
+            }
+
+            instance.group = L.layerGroup(groupLayers).addTo(map);
+        }
+
+        function redrawVehicle(instance) {
+            redrawVehicleGeometry(instance);
+        }
+
+        function removeVehicle(id) {
+            const inst = placedVehicles.find(v => v.id === id);
+            if(inst) {
+                if(confirm(`Sei sicuro di voler rimuovere "${inst.vehicle.name}" dal cantiere?`)) {
+                    if(inst.group) map.removeLayer(inst.group);
+                    if(inst.centerMarker) map.removeLayer(inst.centerMarker);
+                    placedVehicles = placedVehicles.filter(v => v.id !== id);
+                    if(activeVehicleId === id) activeVehicleId = null;
+                    renderPlacedList();
+                }
+            }
+        }
+
+        function renderPlacedList() {
+            const container = document.getElementById('placed-list');
+            container.innerHTML = '';
+            if(placedVehicles.length === 0) { container.innerHTML = '<small style="color:#64748b;">Nessun mezzo inserito.</small>'; return; }
+            placedVehicles.forEach((item, index) => {
+                const isActive = item.id === activeVehicleId ? 'active' : '';
+                let infoText = `Rotazione: ${item.carRot}°`;
+                if(item.vehicle.type === 'crane' || item.vehicle.type === 'truckcrane') {
+                    infoText = `Sbraccio: ${item.boomLen}m | Torretta: ${item.turretRot}°`;
+                }
+                container.innerHTML += `
+                    <div class="placed-item ${isActive}" onclick="setActiveVehicle(${item.id})">
+                        <div class="placed-info">
+                            <strong>#${index+1} ${item.vehicle.name}</strong><br>
+                            ${infoText}
+                        </div>
+                        <button class="danger" style="width:auto; margin:0; padding:4px 8px; font-size:0.75rem;" onclick="event.stopPropagation(); removeVehicle(${item.id})">Rimuovi</button>
+                    </div>
+                `;
+            });
+        }
+
+        function toggleDrawingMode(type) {
+            const textContainer = document.getElementById('ann-text-container');
+            const areaContainer = document.getElementById('ann-area-container');
+            if(type === 'area') {
+                textContainer.style.display = 'none';
+                areaContainer.style.display = 'block';
+            } else {
+                textContainer.style.display = 'block';
+                areaContainer.style.display = 'none';
+                stopAreaDrawing();
+            }
+        }
+
+        function startAreaDrawing() {
+            isDrawingAreaActive = true;
+            drawingPoints = [];
+            document.getElementById('btn-start-draw').innerText = '📍 Tracciamento Attivo (Clicca punti...)';
+            document.getElementById('drawing-instructions').style.display = 'block';
+        }
+
+        function stopAreaDrawing() {
+            isDrawingAreaActive = false;
+            drawingPoints = [];
+            mouseMoveLatLng = null;
+            if(tempDrawingPolyline) {
+                map.removeLayer(tempDrawingPolyline);
+                tempDrawingPolyline = null;
+            }
+            document.getElementById('btn-start-draw').innerText = '✏️ Inizia a Tracciare Area';
+            document.getElementById('drawing-instructions').style.display = 'none';
+        }
+
+        map.on('click', function(e) {
+            const type = document.getElementById('ann-type').value;
+            if(type === 'area' && isDrawingAreaActive) {
+                drawingPoints.push(e.latlng);
+                updateTempDrawingPolygon();
+            }
+        });
+
+        map.on('mousemove', function(e) {
+            const type = document.getElementById('ann-type').value;
+            if(type === 'area' && isDrawingAreaActive && drawingPoints.length > 0) {
+                mouseMoveLatLng = e.latlng;
+                updateTempDrawingPolygon();
+            }
+        });
+
+        function updateTempDrawingPolygon() {
+            const color = document.getElementById('area-color').value;
+            const opacity = parseFloat(document.getElementById('area-opacity').value) || 0.3;
+
+            let currentPoints = [...drawingPoints];
+            if(mouseMoveLatLng) {
+                currentPoints.push(mouseMoveLatLng);
+            }
+
+            if(tempDrawingPolyline) {
+                map.removeLayer(tempDrawingPolyline);
+            }
+            tempDrawingPolyline = L.polygon(currentPoints, {color: color, weight: 2, fillColor: color, fillOpacity: opacity}).addTo(map);
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if(e.key === 'Enter') {
+                const type = document.getElementById('ann-type').value;
+                if(type === 'area' && isDrawingAreaActive && drawingPoints.length >= 3) {
+                    if(tempDrawingPolyline) {
+                        const areaObj = {
+                            id: Date.now(),
+                            type: 'polygon',
+                            layer: tempDrawingPolyline,
+                            name: `Area personalizzata (${annotations.length + 1})`
+                        };
+                        
+                        tempDrawingPolyline.on('click', function(ev) {
+                            L.DomEvent.stopPropagation(ev);
+                            if(confirm("Vuoi eliminare questa area dalla mappa?")) {
+                                map.removeLayer(areaObj.layer);
+                                annotations = annotations.filter(a => a.id !== areaObj.id);
+                                renderAnnotationsList();
+                            }
+                        });
+
+                        annotations.push(areaObj);
+                        tempDrawingPolyline = null;
+                    }
+                    drawingPoints = [];
+                    mouseMoveLatLng = null;
+                    isDrawingAreaActive = false;
+                    document.getElementById('btn-start-draw').innerText = '✏️ Inizia a Tracciare Area';
+                    document.getElementById('drawing-instructions').style.display = 'none';
+                    renderAnnotationsList();
+                }
+            }
+        });
+
+        function clearAllAreas() {
+            if(confirm("Vuoi eliminare tutte le aree tracciate?")) {
+                if(tempDrawingPolyline) {
+                    map.removeLayer(tempDrawingPolyline);
+                    tempDrawingPolyline = null;
+                }
+                annotations.filter(a => a.type === 'polygon').forEach(ann => map.removeLayer(ann.layer));
+                annotations = annotations.filter(a => a.type !== 'polygon');
+                stopAreaDrawing();
+                renderAnnotationsList();
+            }
+        }
+
+        function addAnnotation() {
+            const text = document.getElementById('ann-text').value || '🏗️';
+            const rotation = parseFloat(document.getElementById('ann-rot').value) || 0;
+            const size = parseFloat(document.getElementById('ann-size').value) || 24;
+            const center = map.getCenter();
+
+            // white-space: nowrap e display: inline-block per forzare la riga singola senza a capo
+            let html = `<div style="font-size:${size}px; white-space: nowrap; display: inline-block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); transform: rotate(${rotation}deg); transform-origin: center center; cursor:pointer;" title="Clicca per eliminare">${text}</div>`;
+
+            const marker = L.marker(center, {
+                draggable: true,
+                icon: L.divIcon({ className: 'custom-ann', html: html, iconSize: [0,0], iconAnchor: [0,0] })
+            }).addTo(map);
+
+            const annObj = {
+                id: Date.now(),
+                type: 'text',
+                layer: marker,
+                name: text
+            };
+
+            marker.on('click', function(e) {
+                L.DomEvent.stopPropagation(e);
+                if(confirm(`Vuoi rimuovere l'elemento "${text}" dalla mappa?`)) {
+                    map.removeLayer(marker);
+                    annotations = annotations.filter(a => a.id !== annObj.id);
+                    renderAnnotationsList();
+                }
+            });
+
+            annotations.push(annObj);
+            document.getElementById('ann-text').value = '';
+            renderAnnotationsList();
+        }
+
+        function removeAnnotation(id) {
+            const ann = annotations.find(a => a.id === id);
+            if(ann) {
+                if(confirm(`Vuoi eliminare questo elemento (${ann.name})?`)) {
+                    map.removeLayer(ann.layer);
+                    annotations = annotations.filter(a => a.id !== id);
+                    renderAnnotationsList();
+                }
+            }
+        }
+
+        function renderAnnotationsList() {
+            const container = document.getElementById('annotations-list');
+            container.innerHTML = '';
+            const textAnnotations = annotations.filter(a => a.type === 'text');
+            
+            if(textAnnotations.length === 0) {
+                container.innerHTML = '<small style="color:#64748b;">Nessuna annotazione testuale.</small>';
+                return;
+            }
+
+            textAnnotations.forEach(item => {
+                container.innerHTML += `
+                    <div class="ann-item">
+                        <div class="ann-info" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px;">
+                            <strong>💬 ${item.name}</strong>
+                        </div>
+                        <button class="danger" style="width:auto; margin:0; padding:4px 8px; font-size:0.75rem;" onclick="removeAnnotation(${item.id})">Elimina</button>
+                    </div>
+                `;
+            });
+        }
+
+        function exportToPDF() {
+            window.print();
+        }
+
+        initApp();
+    </script>
+</body>
+</html>
