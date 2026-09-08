@@ -375,7 +375,7 @@
 
         let placedVehicles = [];
         let activeVehicleId = null;
-        let annotations = []; // Contiene marker di testo/emoji e poligoni area
+        let annotations = [];
         
         let isDrawingAreaActive = false;
         let drawingPoints = [];
@@ -513,6 +513,8 @@
                 document.getElementById('stab-ad').value = 100;
                 document.getElementById('stab-ps').value = 100;
                 document.getElementById('stab-pd').value = 100;
+                document.getElementById('show-plates').checked = false;
+                document.getElementById('plate-size').value = '1.2x2';
                 updateStabilizerLabels(100, 100, 100, 100);
             }
         });
@@ -923,7 +925,6 @@
             const size = parseFloat(document.getElementById('ann-size').value) || 24;
             const center = map.getCenter();
 
-            // white-space: nowrap e display: inline-block per forzare la riga singola senza a capo
             let html = `<div style="font-size:${size}px; white-space: nowrap; display: inline-block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); transform: rotate(${rotation}deg); transform-origin: center center; cursor:pointer;" title="Clicca per eliminare">${text}</div>`;
 
             const marker = L.marker(center, {
