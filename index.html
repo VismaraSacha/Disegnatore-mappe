@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Configuratore Autogru & Cantieri - Camillo Vismara SA</title>
+    <title>Posizione veicoli - Camillo Vismara SA</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -170,7 +170,7 @@
                 <select id="model-type" onchange="handleModelTypeChange()">
                     <option value="crane">Autogru</option>
                     <option value="truckcrane">Camiongru</option>
-                    <option value="truck">Camion Pianale</option>
+                    <option value="truck">Camion</option>
                 </select>
 
                 <label>Colore Carro / Mezzo</label>
@@ -271,7 +271,7 @@
 
                 <div class="checkbox-row">
                     <input type="checkbox" id="show-plates" onchange="updateActiveVehicleParam('showPlates', this.checked)">
-                    <label for="show-plates" style="margin-top:0; display:inline;">Aggiungi piastre di ripartizione legno</label>
+                    <label for="show-plates" style="margin-top:0; display:inline;">Aggiungi piastre di ripartizione</label>
                 </div>
 
                 <label>Dimensione Piastre Stabilizzatori</label>
@@ -350,7 +350,7 @@
             <button onclick="searchAddress()">Cerca</button>
         </div>
         <div id="map"></div>
-        <div id="print-footer">Progetto Camillo Vismara SA[cite: 1]</div>
+        <div id="print-footer">Progetto Camillo Vismara SA</div>
     </div>
 
     <!-- Leaflet JS -->
