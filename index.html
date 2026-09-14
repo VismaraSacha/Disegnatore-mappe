@@ -110,11 +110,10 @@
         
         #search-bar {
             position: absolute; top: 15px; right: 15px; z-index: 1001;
-            background: white; padding: 10px 14px; border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 8px; width: 320px;
+            background: white; padding: 8px; border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1); display: flex; gap: 8px; width: 320px;
         }
-        .search-row { display: flex; gap: 8px; width: 100%; }
-        #search-bar input[type="text"] { margin: 0; border: 1px solid var(--border); }
+        #search-bar input { margin: 0; border: 1px solid var(--border); }
         #search-bar button { width: auto; margin: 0; padding: 8px 14px; }
 
         .fleet-item, .placed-item, .ann-item {
@@ -156,7 +155,7 @@
     <div id="sidebar">
         <div class="header">
             <h2>Configuratore Autogru & Cantieri</h2>
-            <small>Sacha Vismara — Camillo Vismara SA</small>
+            <small>Sacha Vismara — Camillo Vismara SA[cite: 1]</small>
         </div>
 
         <div class="section">
@@ -340,22 +339,15 @@
         </div>
 
         <div class="section">
-            <h3>6. Esportazione & Condivisione</h3>
+            <h3>6. Esportazione Progetto</h3>
             <button onclick="exportToPDF()" style="background:#dc2626;">📄 Esporta Progetto in PDF</button>
-            <button onclick="generateShareableLink()" class="success" style="background:#0284c7;">🔗 Condividi Vista Sola Lettura</button>
         </div>
     </div>
 
     <div id="map-container">
         <div id="search-bar">
-            <div class="search-row">
-                <input type="text" id="address-input" placeholder="Cerca indirizzo (es. Lugano)...">
-                <button onclick="searchAddress()">Cerca</button>
-            </div>
-            <div class="checkbox-row" style="margin-top: 4px;">
-                <input type="checkbox" id="toggle-streets" onchange="toggleStreetLabels(this.checked)">
-                <label for="toggle-streets" style="margin-top:0; font-size:0.75rem; cursor:pointer;">Mostra Nomi Vie / Etichette</label>
-            </div>
+            <input type="text" id="address-input" placeholder="Cerca indirizzo (es. Lugano)...">
+            <button onclick="searchAddress()">Cerca</button>
         </div>
         <div id="map"></div>
         <div id="print-footer">Progetto Camillo Vismara SA</div>
@@ -364,37 +356,12 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const shareDataParam = urlParams.get('data');
-        const isReadOnly = !!shareDataParam;
+        var map = L.map('map').setView([46.0037, 8.9511], 19);
 
-        if (isReadOnly) {
-            document.getElementById('sidebar').style.display = 'none';
-            document.getElementById('search-bar').style.display = 'none';
-        }
-
-        var map = L.map('map', { dragging: true }).setView([46.0037, 8.9511], 19);
-
-        // Tile layer Satellitare base (Esri)
-        const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 22,
             attribution: 'Tiles &copy; Esri'
         }).addTo(map);
-
-        // Overlay Layer per i nomi delle vie (CartoDB Labels)
-        const streetLabelsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
-            maxZoom: 22,
-            subdomains: 'abcd',
-            pane: 'shadowPane'
-        });
-
-        function toggleStreetLabels(show) {
-            if (show) {
-                streetLabelsLayer.addTo(map);
-            } else {
-                map.removeLayer(streetLabelsLayer);
-            }
-        }
 
         setTimeout(function() {
             map.invalidateSize();
@@ -409,7 +376,6 @@
         let placedVehicles = [];
         let activeVehicleId = null;
         let annotations = [];
-        let drawnAreas = [];
         
         let isDrawingAreaActive = false;
         let drawingPoints = [];
@@ -417,7 +383,6 @@
         let mouseMoveLatLng = null;
 
         function initApp() {
-            if (isReadOnly) return;
             renderFleetList();
             updateVehicleSelect();
         }
@@ -533,29 +498,26 @@
             });
         }
 
-        const selVehEl = document.getElementById('selected-vehicle');
-        if(selVehEl) {
-            selVehEl.addEventListener('change', function() {
-                const selectedOpt = this.options[this.selectedIndex];
-                const type = selectedOpt.getAttribute('data-type');
-                const baseB = selectedOpt.getAttribute('data-base');
+        document.getElementById('selected-vehicle').addEventListener('change', function() {
+            const selectedOpt = this.options[this.selectedIndex];
+            const type = selectedOpt.getAttribute('data-type');
+            const baseB = selectedOpt.getAttribute('data-base');
 
-                const isCraneType = (type === 'crane' || type === 'truckcrane');
-                document.getElementById('crane-placement-controls').style.display = isCraneType ? 'block' : 'none';
+            const isCraneType = (type === 'crane' || type === 'truckcrane');
+            document.getElementById('crane-placement-controls').style.display = isCraneType ? 'block' : 'none';
 
-                if(isCraneType && baseB) {
-                    document.getElementById('placement-boom-len').value = baseB;
-                    document.getElementById('placement-turret-rot').value = 0;
-                    document.getElementById('stab-as').value = 100;
-                    document.getElementById('stab-ad').value = 100;
-                    document.getElementById('stab-ps').value = 100;
-                    document.getElementById('stab-pd').value = 100;
-                    document.getElementById('show-plates').checked = false;
-                    document.getElementById('plate-size').value = '1.2x2';
-                    updateStabilizerLabels(100, 100, 100, 100);
-                }
-            });
-        }
+            if(isCraneType && baseB) {
+                document.getElementById('placement-boom-len').value = baseB;
+                document.getElementById('placement-turret-rot').value = 0;
+                document.getElementById('stab-as').value = 100;
+                document.getElementById('stab-ad').value = 100;
+                document.getElementById('stab-ps').value = 100;
+                document.getElementById('stab-pd').value = 100;
+                document.getElementById('show-plates').checked = false;
+                document.getElementById('plate-size').value = '1.2x2';
+                updateStabilizerLabels(100, 100, 100, 100);
+            }
+        });
 
         function updateStabilizerLabels(asVal, adVal, psVal, pdVal) {
             const selectedOpt = document.getElementById('selected-vehicle').selectedOptions[0];
@@ -656,7 +618,6 @@
         }
 
         function setActiveVehicle(id) {
-            if (isReadOnly) return;
             activeVehicleId = id;
             const instance = placedVehicles.find(v => v.id === id);
             if(instance) {
@@ -671,13 +632,12 @@
                     document.getElementById('stab-ad').value = instance.extMap.ad;
                     document.getElementById('stab-ps').value = instance.extMap.ps;
                     document.getElementById('stab-pd').value = instance.extMap.pd;
-                    document.getElementById('show-plates').checked = instance.showPlates;
-                    document.getElementById('plate-size').value = instance.plateSize || '1.2x2';
                     updateStabilizerLabels(instance.extMap.as, instance.extMap.ad, instance.extMap.ps, instance.extMap.pd);
+                    document.getElementById('show-plates').checked = instance.showPlates;
+                    document.getElementById('plate-size').value = instance.plateSize;
                 }
-                renderPlacedList();
-                map.panTo(instance.latlng);
             }
+            renderPlacedList();
         }
 
         function updateActiveVehicleParam(param, value) {
@@ -685,342 +645,188 @@
             const instance = placedVehicles.find(v => v.id === activeVehicleId);
             if(!instance) return;
 
-            if(param === 'carRot') instance.carRot = parseFloat(value) || 0;
-            if(param === 'turretRot') instance.turretRot = parseFloat(value) || 0;
-            if(param === 'boomLen') instance.boomLen = parseFloat(value) || 0;
-            if(param === 'showPlates') instance.showPlates = !!value;
-            if(param === 'plateSize') instance.plateSize = value;
+            if(['carRot', 'turretRot', 'boomLen'].includes(param)) {
+                instance[param] = parseFloat(value) || 0;
+            } else {
+                instance[param] = value;
+            }
+            redrawVehicle(instance);
+        }
+
+        function createVehicleMapElements(instance) {
+            const centerIcon = L.divIcon({
+                className: 'custom-center-icon',
+                html: '<div style="width:16px; height:16px; background:#0f172a; border:2px solid white; border-radius:50%; box-shadow:0 0 6px rgba(0,0,0,0.3);" title="Trascina per spostare il mezzo"></div>',
+                iconSize: [16, 16], iconAnchor: [8, 8]
+            });
+
+            instance.centerMarker = L.marker(instance.latlng, { draggable: true, icon: centerIcon }).addTo(map);
+            instance.centerMarker.on('click', () => setActiveVehicle(instance.id));
+            instance.centerMarker.on('drag', function() {
+                instance.latlng = instance.centerMarker.getLatLng();
+                redrawVehicle(instance);
+            });
 
             redrawVehicle(instance);
         }
 
-        function deletePlacedVehicle(id, event) {
-            if(event) event.stopPropagation();
-            const instance = placedVehicles.find(v => v.id === id);
-            if(instance && instance.group) {
-                map.removeLayer(instance.group);
+        function redrawVehicleGeometry(instance) {
+            const vehicle = instance.vehicle;
+            const lat = instance.latlng.lat;
+            const lng = instance.latlng.lng;
+
+            if(instance.group) { map.removeLayer(instance.group); }
+
+            const L2 = (vehicle.length || 10.0) / 2;
+            const W2 = (vehicle.width || 2.5) / 2;
+            let groupLayers = [];
+
+            let carLocal = [[-W2, L2], [W2, L2], [W2, -L2], [-W2, -L2]];
+            let carGeo = carLocal.map(p => {
+                let rp = rotatePoint(p[0], p[1], 0, 0, instance.carRot || 0);
+                return metersToLatLon(lat, lng, rp[1], rp[0]);
+            });
+
+            let carPoly = L.polygon(carGeo, {
+                color: '#0f172a', weight: 2, fillColor: vehicle.color || '#2563eb', fillOpacity: 0.9
+            });
+
+            let cabLocal = [[-W2 * 0.85, L2], [W2 * 0.85, L2], [W2 * 0.85, L2 - (vehicle.type === 'truck' ? 2.5 : 2.2)], [-W2 * 0.85, L2 - (vehicle.type === 'truck' ? 2.5 : 2.2)]];
+            let cabGeo = cabLocal.map(p => {
+                let rp = rotatePoint(p[0], p[1], 0, 0, instance.carRot || 0);
+                return metersToLatLon(lat, lng, rp[1], rp[0]);
+            });
+            groupLayers.push(L.polygon(cabGeo, { color: '#0f172a', weight: 1.5, fillColor: '#93c5fd', fillOpacity: 0.95 }));
+
+            carPoly.on('click', (e) => {
+                L.DomEvent.stopPropagation(e);
+                setActiveVehicle(instance.id);
+                instance.carRot = ((instance.carRot || 0) + 45);
+                document.getElementById('placement-rotation').value = instance.carRot;
+                redrawVehicle(instance);
+            });
+            groupLayers.push(carPoly);
+
+            if (vehicle.type === 'crane' || vehicle.type === 'truckcrane') {
+                const maxStabW = (vehicle.stabW || 8.0) / 2;
+                const stabAttachOffset = L2 * 0.6;
+                const extMap = instance.extMap || {as: 100, ad: 100, ps: 100, pd: 100};
+                
+                const stabPoints = [
+                    { key: 'as', x: -maxStabW * (extMap.as / 100), y: stabAttachOffset },
+                    { key: 'ad', x: maxStabW * (extMap.ad / 100), y: stabAttachOffset },
+                    { key: 'ps', x: -maxStabW * (extMap.ps / 100), y: -stabAttachOffset },
+                    { key: 'pd', x: maxStabW * (extMap.pd / 100), y: -stabAttachOffset }
+                ];
+
+                stabPoints.forEach(sp => {
+                    let attLoc = { x: (sp.x < 0 ? -W2 : W2), y: sp.y };
+                    let rotAtt = rotatePoint(attLoc.x, attLoc.y, 0, 0, instance.carRot || 0);
+                    let rotStab = rotatePoint(sp.x, sp.y, 0, 0, instance.carRot || 0);
+
+                    groupLayers.push(L.polyline([metersToLatLon(lat, lng, rotAtt[1], rotAtt[0]), metersToLatLon(lat, lng, rotStab[1], rotStab[0])], { color: '#dc2626', weight: 3, dashArray: '3,3' }));
+
+                    let pSize = 0.4;
+                    let plateLoc = [[sp.x - pSize, sp.y + pSize], [sp.x + pSize, sp.y + pSize], [sp.x + pSize, sp.y - pSize], [sp.x - pSize, sp.y - pSize]];
+                    let plateGeo = plateLoc.map(pt => {
+                        let rp = rotatePoint(pt[0], pt[1], 0, 0, instance.carRot || 0);
+                        return metersToLatLon(lat, lng, rp[1], rp[0]);
+                    });
+                    groupLayers.push(L.polygon(plateGeo, { color: '#991b1b', weight: 1, fillColor: '#ef4444', fillOpacity: 1 }));
+
+                    if (instance.showPlates) {
+                        let pW = 1.2, pL = 2.0;
+                        if (instance.plateSize === '1.6x2') { pW = 1.6; pL = 2.0; }
+                        else if (instance.plateSize === '2.5x3') { pW = 2.5; pL = 3.0; }
+                        let pw2 = pW / 2, pl2 = pL / 2;
+                        let woodLoc = [[sp.x - pw2, sp.y + pl2], [sp.x + pw2, sp.y + pl2], [sp.x + pw2, sp.y - pl2], [sp.x - pw2, sp.y - pl2]];
+                        let woodGeo = woodLoc.map(wt => {
+                            let rp = rotatePoint(wt[0], wt[1], 0, 0, instance.carRot || 0);
+                            return metersToLatLon(lat, lng, rp[1], rp[0]);
+                        });
+                        groupLayers.push(L.polygon(woodGeo, { color: '#b45309', weight: 1.5, fillColor: '#d97706', fillOpacity: 0.85 }));
+                    }
+                });
+
+                let offsetVal = vehicle.centerOffset || 0;
+                let rotCenterOffset = rotatePoint(0, offsetVal, 0, 0, instance.carRot || 0);
+                let centerCraneLatLng = metersToLatLon(lat, lng, rotCenterOffset[1], rotCenterOffset[0]);
+
+                if (vehicle.type === 'crane') {
+                    let tailRadius = vehicle.tail || 3.5;
+                    groupLayers.push(L.circle(centerCraneLatLng, { radius: tailRadius, color: '#f97316', weight: 1.5, dashArray: '5,5', fillColor: '#f97316', fillOpacity: 0.08 }));
+                }
+                groupLayers.push(L.circle(centerCraneLatLng, { radius: 1.2, color: '#9a3412', weight: 2, fillColor: '#f59e0b', fillOpacity: 0.9 }));
+
+                let boomLen = instance.boomLen || 22;
+                let boomLocal = [[-0.4, -1.0], [0.4, -1.0], [0.4, boomLen], [-0.4, boomLen]];
+                let boomGeo = boomLocal.map(bp => {
+                    let rp = rotatePoint(bp[0], bp[1], 0, 0, instance.turretRot || 0);
+                    return metersToLatLon(centerCraneLatLng[0], centerCraneLatLng[1], rp[1], rp[0]);
+                });
+                groupLayers.push(L.polygon(boomGeo, { color: '#b45309', weight: 2, fillColor: '#f59e0b', fillOpacity: 0.9 }));
             }
-            placedVehicles = placedVehicles.filter(v => v.id !== id);
-            if(activeVehicleId === id) activeVehicleId = null;
-            renderPlacedList();
+
+            instance.group = L.layerGroup(groupLayers).addTo(map);
+        }
+
+        function redrawVehicle(instance) {
+            redrawVehicleGeometry(instance);
+        }
+
+        function removeVehicle(id) {
+            const inst = placedVehicles.find(v => v.id === id);
+            if(inst) {
+                if(confirm(`Sei sicuro di voler rimuovere "${inst.vehicle.name}" dal cantiere?`)) {
+                    if(inst.group) map.removeLayer(inst.group);
+                    if(inst.centerMarker) map.removeLayer(inst.centerMarker);
+                    placedVehicles = placedVehicles.filter(v => v.id !== id);
+                    if(activeVehicleId === id) activeVehicleId = null;
+                    renderPlacedList();
+                }
+            }
         }
 
         function renderPlacedList() {
             const container = document.getElementById('placed-list');
-            if(!container) return;
             container.innerHTML = '';
-            if(placedVehicles.length === 0) {
-                container.innerHTML = '<small style="color:#64748b;">Nessun mezzo inserito.</small>';
-                return;
-            }
-
-            placedVehicles.forEach(item => {
-                const isActive = (item.id === activeVehicleId);
+            if(placedVehicles.length === 0) { container.innerHTML = '<small style="color:#64748b;">Nessun mezzo inserito.</small>'; return; }
+            placedVehicles.forEach((item, index) => {
+                const isActive = item.id === activeVehicleId ? 'active' : '';
+                let infoText = `Rotazione: ${item.carRot}°`;
+                if(item.vehicle.type === 'crane' || item.vehicle.type === 'truckcrane') {
+                    infoText = `Sbraccio: ${item.boomLen}m | Torretta: ${item.turretRot}°`;
+                }
                 container.innerHTML += `
-                    <div class="placed-item ${isActive ? 'active' : ''}" onclick="setActiveVehicle(${item.id})">
+                    <div class="placed-item ${isActive}" onclick="setActiveVehicle(${item.id})">
                         <div class="placed-info">
-                            <strong>${item.vehicle.name}</strong><br>
-                            <small>Rot. Carro: ${item.carRot}° ${item.boomLen ? '| Sbraccio: ' + item.boomLen + 'm' : ''}</small>
+                            <strong>#${index+1} ${item.vehicle.name}</strong><br>
+                            ${infoText}
                         </div>
-                        <button class="danger" style="width:auto; margin:0; padding:4px 8px; font-size:0.75rem;" onclick="deletePlacedVehicle(${item.id}, event)">Rimuovi</button>
+                        <button class="danger" style="width:auto; margin:0; padding:4px 8px; font-size:0.75rem;" onclick="event.stopPropagation(); removeVehicle(${item.id})">Rimuovi</button>
                     </div>
                 `;
             });
-        }
-
-        function createVehicleMapElements(instance) {
-            if(instance.group) map.removeLayer(instance.group);
-            instance.group = L.layerGroup().addTo(map);
-
-            const centerMarker = L.marker(instance.latlng, {
-                draggable: !isReadOnly,
-                icon: L.divIcon({
-                    className: 'custom-vehicle-marker',
-                    html: `<div style="background:${instance.vehicle.color || '#2563eb'}; width:14px; height:14px; border:2px solid white; border-radius:50%; box-shadow:0 0 6px rgba(0,0,0,0.6);"></div>`,
-                    iconSize: [14, 14],
-                    iconAnchor: [7, 7]
-                })
-            }).addTo(instance.group);
-
-            instance.centerMarker = centerMarker;
-
-            if(!isReadOnly) {
-                centerMarker.on('drag', function(e) {
-                    instance.latlng = e.target.getLatLng();
-                    redrawVehicle(instance, false);
-                });
-                centerMarker.on('dragend', function() {
-                    redrawVehicle(instance, true);
-                });
-            }
-
-            redrawVehicle(instance, true);
-        }
-
-        function redrawVehicle(instance) {
-            if(!instance.group) return;
-            instance.group.clearLayers();
-
-            const centerMarker = L.marker(instance.latlng, {
-                draggable: !isReadOnly,
-                icon: L.divIcon({
-                    className: 'custom-vehicle-marker',
-                    html: `<div style="background:${instance.vehicle.color || '#2563eb'}; width:14px; height:14px; border:2px solid white; border-radius:50%; box-shadow:0 0 6px rgba(0,0,0,0.6);"></div>`,
-                    iconSize: [14, 14],
-                    iconAnchor: [7, 7]
-                })
-            }).addTo(instance.group);
-
-            instance.centerMarker = centerMarker;
-            if(!isReadOnly) {
-                centerMarker.on('drag', function(e) {
-                    instance.latlng = e.target.getLatLng();
-                    redrawVehicle(instance);
-                });
-            }
-
-            const lat = instance.latlng.lat;
-            const lng = instance.latlng.lng;
-            const v = instance.vehicle;
-            const carRot = instance.carRot || 0;
-
-            const L_len = v.length || 10;
-            const W_wid = v.width || 2.5;
-            const halfL = L_len / 2;
-            const halfW = W_wid / 2;
-
-            const localCorners = [
-                [-halfW, -halfL],
-                [halfW, -halfL],
-                [halfW, halfL],
-                [-halfW, halfL]
-            ];
-
-            const rotatedCorners = localCorners.map(pt => {
-                const rotPt = rotatePoint(pt[0], pt[1], 0, 0, carRot);
-                return metersToLatLon(lat, lng, rotPt[1], rotPt[0]);
-            });
-
-            L.polygon(rotatedCorners, {
-                color: '#0f172a',
-                weight: 2,
-                fillColor: v.color || '#2563eb',
-                fillOpacity: 0.85
-            }).addTo(instance.group);
-
-            if (v.type === 'crane' || v.type === 'truckcrane') {
-                const ext = instance.extMap || {as: 100, ad: 100, ps: 100, pd: 100};
-                const maxStabW = v.stabW || 8.0;
-                const maxStabL = v.stabL || 8.0;
-                const halfMaxW = maxStabW / 2;
-                const halfMaxL = maxStabL / 2;
-
-                const curAS = halfMaxW * (ext.as / 100);
-                const curAD = halfMaxW * (ext.ad / 100);
-                const curPS = halfMaxW * (ext.ps / 100);
-                const curPD = halfMaxW * (ext.pd / 100);
-
-                const longitudinalOffset = 2.0;
-
-                const stabLocalPoints = [
-                    [-curAS, longitudinalOffset],
-                    [curAD, longitudinalOffset],
-                    [curPD, -longitudinalOffset],
-                    [-curPS, -longitudinalOffset]
-                ];
-
-                const rotatedStabs = stabLocalPoints.map(pt => {
-                    const rotPt = rotatePoint(pt[0], pt[1], 0, 0, carRot);
-                    return metersToLatLon(lat, lng, rotPt[1], rotPt[0]);
-                });
-
-                L.polyline([rotatedStabs[0], rotatedStabs[1]], {color: '#dc2626', weight: 4}).addTo(instance.group);
-                L.polyline([rotatedStabs[2], rotatedStabs[3]], {color: '#dc2626', weight: 4}).addTo(instance.group);
-                L.polyline([rotatedStabs[0], rotatedStabs[3]], {color: '#dc2626', weight: 3, dashArray: '4,4'}).addTo(instance.group);
-                L.polyline([rotatedStabs[1], rotatedStabs[2]], {color: '#dc2626', weight: 3, dashArray: '4,4'}).addTo(instance.group);
-
-                if (instance.showPlates) {
-                    let pDimW = 1.2, pDimL = 2.0;
-                    if(instance.plateSize === '1.6x2') { pDimW = 1.6; pDimL = 2.0; }
-                    else if(instance.plateSize === '2.5x3') { pDimW = 2.5; pDimL = 3.0; }
-
-                    rotatedStabs.forEach(stCoord => {
-                        const pLocal = [
-                            [-pDimW/2, -pDimL/2],
-                            [pDimW/2, -pDimL/2],
-                            [pDimW/2, pDimL/2],
-                            [-pDimW/2, pDimL/2]
-                        ];
-                        const rotPlate = pLocal.map(pt => {
-                            const rPt = rotatePoint(pt[0], pt[1], 0, 0, carRot);
-                            return metersToLatLon(stCoord[0], stCoord[1], rPt[1], rPt[0]);
-                        });
-                        L.polygon(rotPlate, {
-                            color: '#0f172a',
-                            weight: 1,
-                            fillColor: '#f59e0b',
-                            fillOpacity: 0.9
-                        }).addTo(instance.group);
-                    });
-                }
-
-                const boomLen = instance.boomLen || 15;
-                const totalRot = carRot + (instance.turretRot || 0);
-                const boomTipLocal = rotatePoint(0, boomLen, 0, 0, totalRot);
-                const boomTipCoord = metersToLatLon(lat, lng, boomTipLocal[1], boomTipLocal[0]);
-
-                L.polyline([ [lat, lng], boomTipCoord ], {
-                    color: '#f97316',
-                    weight: 5,
-                    opacity: 0.95
-                }).addTo(instance.group);
-
-                L.circleMarker(boomTipCoord, {
-                    radius: 7,
-                    color: '#0f172a',
-                    fillColor: '#f97316',
-                    fillOpacity: 1,
-                    weight: 2
-                }).addTo(instance.group).bindTooltip(`Sbraccio: ${boomLen}m`, {permanent: false});
-            }
         }
 
         function toggleDrawingMode(type) {
-            const txtCont = document.getElementById('ann-text-container');
-            const areaCont = document.getElementById('ann-area-container');
-            if(type === 'emoji') {
-                txtCont.style.display = 'block';
-                areaCont.style.display = 'none';
-                stopAreaDrawing();
+            const textContainer = document.getElementById('ann-text-container');
+            const areaContainer = document.getElementById('ann-area-container');
+            if(type === 'area') {
+                textContainer.style.display = 'none';
+                areaContainer.style.display = 'block';
             } else {
-                txtCont.style.display = 'none';
-                areaCont.style.display = 'block';
+                textContainer.style.display = 'block';
+                areaContainer.style.display = 'none';
+                stopAreaDrawing();
             }
-        }
-
-        function addAnnotation() {
-            const text = document.getElementById('ann-text').value;
-            if(!text) { alert("Inserisci un simbolo o testo."); return; }
-            const size = parseInt(document.getElementById('ann-size').value) || 24;
-            const rot = parseInt(document.getElementById('ann-rot').value) || 0;
-            const center = map.getCenter();
-
-            const ann = {
-                id: Date.now(),
-                text: text,
-                size: size,
-                rot: rot,
-                latlng: center,
-                marker: null
-            };
-
-            annotations.push(ann);
-            createAnnotationMarker(ann);
-            renderAnnotationsList();
-            document.getElementById('ann-text').value = '';
-        }
-
-        function createAnnotationMarker(ann) {
-            const icon = L.divIcon({
-                className: 'custom-ann-marker',
-                html: `<div style="font-size: ${ann.size}px; transform: rotate(${ann.rot}deg); white-space: nowrap; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${ann.text}</div>`,
-                iconSize: [ann.size, ann.size],
-                iconAnchor: [ann.size/2, ann.size/2]
-            });
-
-            ann.marker = L.marker(ann.latlng, {
-                draggable: !isReadOnly,
-                icon: icon
-            }).addTo(map);
-
-            if(!isReadOnly) {
-                ann.marker.on('dragend', function(e) {
-                    ann.latlng = e.target.getLatLng();
-                });
-            }
-        }
-
-        function deleteAnnotation(id) {
-            const ann = annotations.find(a => a.id === id);
-            if(ann && ann.marker) map.removeLayer(ann.marker);
-            annotations = annotations.filter(a => a.id !== id);
-            renderAnnotationsList();
-        }
-
-        function renderAnnotationsList() {
-            const container = document.getElementById('annotations-list');
-            if(!container) return;
-            container.innerHTML = '';
-            if(annotations.length === 0) {
-                container.innerHTML = '<small style="color:#64748b;">Nessuna annotazione.</small>';
-                return;
-            }
-            annotations.forEach(item => {
-                container.innerHTML += `
-                    <div class="ann-item">
-                        <div class="ann-info"><strong>${item.text}</strong> (${item.size}px)</div>
-                        <button class="danger" style="width:auto; margin:0; padding:4px 8px; font-size:0.75rem;" onclick="deleteAnnotation(${item.id})">Elimina</button>
-                    </div>
-                `;
-            });
         }
 
         function startAreaDrawing() {
             isDrawingAreaActive = true;
             drawingPoints = [];
+            document.getElementById('btn-start-draw').innerText = '📍 Tracciamento Attivo (Clicca punti...)';
             document.getElementById('drawing-instructions').style.display = 'block';
-            document.getElementById('btn-start-draw').innerText = '⏳ Clicca punti sulla mappa...';
-            document.getElementById('btn-start-draw').style.background = '#64748b';
-            map.dragging.disable();
-
-            map.on('click', onMapClickForArea);
-            map.on('mousemove', onMapMouseMoveForArea);
-            document.addEventListener('keydown', onDocumentKeyDownForArea);
-        }
-
-        function onMapClickForArea(e) {
-            if(!isDrawingAreaActive) return;
-            drawingPoints.push(e.latlng);
-            updateTempPolygon();
-        }
-
-        function onMapMouseMoveForArea(e) {
-            if(!isDrawingAreaActive) return;
-            mouseMoveLatLng = e.latlng;
-            updateTempPolygon();
-        }
-
-        function updateTempPolygon() {
-            if(tempDrawingPolyline) map.removeLayer(tempDrawingPolyline);
-            let pts = [...drawingPoints];
-            if(mouseMoveLatLng && pts.length > 0) pts.push(mouseMoveLatLng);
-            if(pts.length > 1) {
-                tempDrawingPolyline = L.polyline(pts, {color: '#2563eb', weight: 3, dashArray: '5,5'}).addTo(map);
-            }
-        }
-
-        function onDocumentKeyDownForArea(e) {
-            if(e.key === 'Enter' && isDrawingAreaActive) {
-                finishAreaDrawing();
-            }
-        }
-
-        function finishAreaDrawing() {
-            if(!isDrawingAreaActive) return;
-            if(drawingPoints.length >= 3) {
-                const color = document.getElementById('area-color').value;
-                const opacity = parseFloat(document.getElementById('area-opacity').value) || 0.3;
-
-                const poly = L.polygon(drawingPoints, {
-                    color: color,
-                    weight: 2,
-                    fillColor: color,
-                    fillOpacity: opacity
-                }).addTo(map);
-
-                drawnAreas.push(poly);
-            }
-            stopAreaDrawing();
         }
 
         function stopAreaDrawing() {
@@ -1031,129 +837,157 @@
                 map.removeLayer(tempDrawingPolyline);
                 tempDrawingPolyline = null;
             }
-            map.dragging.enable();
-            map.off('click', onMapClickForArea);
-            map.off('mousemove', onMapMouseMoveForArea);
-            document.removeEventListener('keydown', onDocumentKeyDownForArea);
-            
-            const btnDraw = document.getElementById('btn-start-draw');
-            const instr = document.getElementById('drawing-instructions');
-            if(btnDraw) {
-                btnDraw.innerText = '✏️ Inizia a Tracciare Area';
-                btnDraw.style.background = '#f59e0b';
-            }
-            if(instr) instr.style.display = 'none';
+            document.getElementById('btn-start-draw').innerText = '✏️ Inizia a Tracciare Area';
+            document.getElementById('drawing-instructions').style.display = 'none';
         }
 
+        map.on('click', function(e) {
+            const type = document.getElementById('ann-type').value;
+            if(type === 'area' && isDrawingAreaActive) {
+                drawingPoints.push(e.latlng);
+                updateTempDrawingPolygon();
+            }
+        });
+
+        map.on('mousemove', function(e) {
+            const type = document.getElementById('ann-type').value;
+            if(type === 'area' && isDrawingAreaActive && drawingPoints.length > 0) {
+                mouseMoveLatLng = e.latlng;
+                updateTempDrawingPolygon();
+            }
+        });
+
+        function updateTempDrawingPolygon() {
+            const color = document.getElementById('area-color').value;
+            const opacity = parseFloat(document.getElementById('area-opacity').value) || 0.3;
+
+            let currentPoints = [...drawingPoints];
+            if(mouseMoveLatLng) {
+                currentPoints.push(mouseMoveLatLng);
+            }
+
+            if(tempDrawingPolyline) {
+                map.removeLayer(tempDrawingPolyline);
+            }
+            tempDrawingPolyline = L.polygon(currentPoints, {color: color, weight: 2, fillColor: color, fillOpacity: opacity}).addTo(map);
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if(e.key === 'Enter') {
+                const type = document.getElementById('ann-type').value;
+                if(type === 'area' && isDrawingAreaActive && drawingPoints.length >= 3) {
+                    if(tempDrawingPolyline) {
+                        const areaObj = {
+                            id: Date.now(),
+                            type: 'polygon',
+                            layer: tempDrawingPolyline,
+                            name: `Area personalizzata (${annotations.length + 1})`
+                        };
+                        
+                        tempDrawingPolyline.on('click', function(ev) {
+                            L.DomEvent.stopPropagation(ev);
+                            if(confirm("Vuoi eliminare questa area dalla mappa?")) {
+                                map.removeLayer(areaObj.layer);
+                                annotations = annotations.filter(a => a.id !== areaObj.id);
+                                renderAnnotationsList();
+                            }
+                        });
+
+                        annotations.push(areaObj);
+                        tempDrawingPolyline = null;
+                    }
+                    drawingPoints = [];
+                    mouseMoveLatLng = null;
+                    isDrawingAreaActive = false;
+                    document.getElementById('btn-start-draw').innerText = '✏️ Inizia a Tracciare Area';
+                    document.getElementById('drawing-instructions').style.display = 'none';
+                    renderAnnotationsList();
+                }
+            }
+        });
+
         function clearAllAreas() {
-            drawnAreas.forEach(poly => map.removeLayer(poly));
-            drawnAreas = [];
+            if(confirm("Vuoi eliminare tutte le aree tracciate?")) {
+                if(tempDrawingPolyline) {
+                    map.removeLayer(tempDrawingPolyline);
+                    tempDrawingPolyline = null;
+                }
+                annotations.filter(a => a.type === 'polygon').forEach(ann => map.removeLayer(ann.layer));
+                annotations = annotations.filter(a => a.type !== 'polygon');
+                stopAreaDrawing();
+                renderAnnotationsList();
+            }
+        }
+
+        function addAnnotation() {
+            const text = document.getElementById('ann-text').value || '🏗️';
+            const rotation = parseFloat(document.getElementById('ann-rot').value) || 0;
+            const size = parseFloat(document.getElementById('ann-size').value) || 24;
+            const center = map.getCenter();
+
+            let html = `<div style="font-size:${size}px; white-space: nowrap; display: inline-block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); transform: rotate(${rotation}deg); transform-origin: center center; cursor:pointer;" title="Clicca per eliminare">${text}</div>`;
+
+            const marker = L.marker(center, {
+                draggable: true,
+                icon: L.divIcon({ className: 'custom-ann', html: html, iconSize: [0,0], iconAnchor: [0,0] })
+            }).addTo(map);
+
+            const annObj = {
+                id: Date.now(),
+                type: 'text',
+                layer: marker,
+                name: text
+            };
+
+            marker.on('click', function(e) {
+                L.DomEvent.stopPropagation(e);
+                if(confirm(`Vuoi rimuovere l'elemento "${text}" dalla mappa?`)) {
+                    map.removeLayer(marker);
+                    annotations = annotations.filter(a => a.id !== annObj.id);
+                    renderAnnotationsList();
+                }
+            });
+
+            annotations.push(annObj);
+            document.getElementById('ann-text').value = '';
+            renderAnnotationsList();
+        }
+
+        function removeAnnotation(id) {
+            const ann = annotations.find(a => a.id === id);
+            if(ann) {
+                if(confirm(`Vuoi eliminare questo elemento (${ann.name})?`)) {
+                    map.removeLayer(ann.layer);
+                    annotations = annotations.filter(a => a.id !== id);
+                    renderAnnotationsList();
+                }
+            }
+        }
+
+        function renderAnnotationsList() {
+            const container = document.getElementById('annotations-list');
+            container.innerHTML = '';
+            const textAnnotations = annotations.filter(a => a.type === 'text');
+            
+            if(textAnnotations.length === 0) {
+                container.innerHTML = '<small style="color:#64748b;">Nessuna annotazione testuale.</small>';
+                return;
+            }
+
+            textAnnotations.forEach(item => {
+                container.innerHTML += `
+                    <div class="ann-item">
+                        <div class="ann-info" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px;">
+                            <strong>💬 ${item.name}</strong>
+                        </div>
+                        <button class="danger" style="width:auto; margin:0; padding:4px 8px; font-size:0.75rem;" onclick="removeAnnotation(${item.id})">Elimina</button>
+                    </div>
+                `;
+            });
         }
 
         function exportToPDF() {
             window.print();
-        }
-
-        function generateShareableLink() {
-            const state = {
-                center: [map.getCenter().lat, map.getCenter().lng],
-                zoom: map.getZoom(),
-                placed: placedVehicles.map(i => ({
-                    vehicle: i.vehicle,
-                    latlng: [i.latlng.lat, i.latlng.lng],
-                    carRot: i.carRot,
-                    turretRot: i.turretRot,
-                    boomLen: i.boomLen,
-                    extMap: i.extMap,
-                    showPlates: i.showPlates,
-                    plateSize: i.plateSize
-                })),
-                annotations: annotations.map(a => ({
-                    text: a.text,
-                    size: a.size,
-                    rot: a.rot,
-                    latlng: [a.latlng.lat, a.latlng.lng]
-                })),
-                areas: drawnAreas.map(p => ({
-                    latlngs: p.getLatLngs()[0].map(ll => [ll.lat, ll.lng]),
-                    color: p.options.color,
-                    opacity: p.options.fillOpacity
-                }))
-            };
-
-            const jsonStr = JSON.stringify(state);
-            const encodedData = encodeURIComponent(jsonStr);
-            const shareUrl = window.location.origin + window.location.pathname + '?data=' + encodedData;
-
-            navigator.clipboard.writeText(shareUrl).then(() => {
-                alert("🔗 Link di sola lettura copiato negli appunti con successo!");
-            }).catch(err => {
-                console.error("Errore copia appunti:", err);
-                prompt("Copia il link di sola lettura:", shareUrl);
-            });
-        }
-
-        // Se siamo in modalità sola lettura, attiva automaticamente anche i nomi delle vie
-        if (isReadOnly) {
-            streetLabelsLayer.addTo(map);
-            if (shareDataParam) {
-                try {
-                    const state = JSON.parse(decodeURIComponent(shareDataParam));
-                    if (state.center && state.zoom) {
-                        map.setView(state.center, state.zoom);
-                    }
-
-                    if (state.placed) {
-                        state.placed.forEach(pData => {
-                            const inst = {
-                                id: Date.now() + Math.random(),
-                                vehicle: pData.vehicle,
-                                latlng: L.latLng(pData.latlng[0], pData.latlng[1]),
-                                carRot: pData.carRot,
-                                turretRot: pData.turretRot,
-                                boomLen: pData.boomLen,
-                                extMap: pData.extMap,
-                                showPlates: pData.showPlates,
-                                plateSize: pData.plateSize,
-                                group: null,
-                                centerMarker: null
-                            };
-                            placedVehicles.push(inst);
-                            createVehicleMapElements(inst);
-                        });
-                    }
-
-                    if (state.annotations) {
-                        state.annotations.forEach(aData => {
-                            const ann = {
-                                id: Date.now() + Math.random(),
-                                text: aData.text,
-                                size: aData.size,
-                                rot: aData.rot,
-                                latlng: L.latLng(aData.latlng[0], aData.latlng[1]),
-                                marker: null
-                            };
-                            annotations.push(ann);
-                            createAnnotationMarker(ann);
-                        });
-                    }
-
-                    if (state.areas) {
-                        state.areas.forEach(aData => {
-                            const poly = L.polygon(aData.latlngs, {
-                                color: aData.color,
-                                weight: 2,
-                                fillColor: aData.color,
-                                fillOpacity: aData.opacity
-                            }).addTo(map);
-                            drawnAreas.push(poly);
-                        });
-                    }
-                } catch (e) {
-                    console.error("Errore nel parsing dei dati condivisi:", e);
-                    alert("Impossibile caricare i dati dal link condiviso.");
-                }
-            }
         }
 
         initApp();
