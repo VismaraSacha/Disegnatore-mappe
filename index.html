@@ -212,13 +212,13 @@ border-top: 1px solid #cbd5e1;
 </div>
 <div class="section" style="background: #f1f5f9;">
 <h3>Dati Progetto / Cantiere (per PDF)</h3>
-<label>Nome Cantiere</label>
-<input type="text" id="pdf-cantiere" placeholder="Es. cantiere Centro Città" oninput="syncPrintHeader()">
+<label>Nome cantiere / Progetto</label>
+<input type="text" id="pdf-cantiere" placeholder="Es. Cantiere Centro Città" oninput="syncPrintHeader()">
 <label>Indirizzo Cantiere</label>
 <input type="text" id="pdf-indirizzo" placeholder="Es. Via Lugano 14, Lugano" oninput="syncPrintHeader()">
-<label>Nome Progetto</label>
-<input type="text" id="pdf-progetto" placeholder="Es. Montaggio Gru Torre & Autogru" oninput="syncPrintHeader()">
-<label>Descrizione / Note Operative</label>
+<label>Responsabile Progetto</label>
+<input type="text" id="pdf-responsabile" placeholder="Es. Sacha Vismara" oninput="syncPrintHeader()">
+<label>Descrizione / Note</label>
 <textarea id="pdf-desc" rows="3" placeholder="Inserisci note o dettagli operativi per il rapporto..." oninput="syncPrintHeader()"></textarea>
 </div>
 <div class="section">
@@ -396,9 +396,9 @@ border-top: 1px solid #cbd5e1;
 <span style="font-size: 0.85rem; font-weight: normal; color: #64748b;" id="p-date-display"></span>
 </h1>
 <div class="project-meta-grid">
-<div><strong>Cantiere:</strong> <span id="p-cantiere-val">-</span></div>
-<div><strong>Indirizzo:</strong> <span id="p-indirizzo-val">-</span></div>
-<div><strong>Progetto:</strong> <span id="p-progetto-val">-</span></div>
+<div><strong>Nome cantiere / Progetto:</strong> <span id="p-cantiere-val">-</span></div>
+<div><strong>Indirizzo Cantiere:</strong> <span id="p-indirizzo-val">-</span></div>
+<div><strong>Responsabile Progetto:</strong> <span id="p-responsabile-val">-</span></div>
 <div><strong>Data Stampa:</strong> <span id="p-printdate-val">-</span></div>
 </div>
 <div class="project-desc" id="p-desc-val" style="display: none;"></div>
@@ -429,7 +429,7 @@ maxZoom: 22,
 attribution: 'Tiles &copy; Esri'
 }).addTo(map);
 
-// Layer trasparente dedicato solo a etichette, nomi delle vie e punti di interesse (CartoDB Labels / Stamen Toner lines)
+// Layer trasparente dedicato solo a etichette, nomi delle vie e punti di interesse
 let streetsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {
 maxZoom: 22,
 subdomains: 'abcd',
@@ -469,11 +469,11 @@ syncPrintHeader();
 function syncPrintHeader() {
 const cantiere = document.getElementById('pdf-cantiere').value || 'Cantiere Generale';
 const indirizzo = document.getElementById('pdf-indirizzo').value || 'Non specificato';
-const progetto = document.getElementById('pdf-progetto').value || 'Piano Posizionamento Mezzi';
+const responsabile = document.getElementById('pdf-responsabile').value || 'Non specificato';
 const desc = document.getElementById('pdf-desc').value || '';
 document.getElementById('p-cantiere-val').innerText = cantiere;
 document.getElementById('p-indirizzo-val').innerText = indirizzo;
-document.getElementById('p-progetto-val').innerText = progetto;
+document.getElementById('p-responsabile-val').innerText = responsabile;
 document.getElementById('p-title-display').innerText = 'Rapporto Cantiere: ' + cantiere;
 const now = new Date().toLocaleDateString('it-CH', { year: 'numeric', month: '2-digit', day: '2-digit' });
 document.getElementById('p-printdate-val').innerText = now;
